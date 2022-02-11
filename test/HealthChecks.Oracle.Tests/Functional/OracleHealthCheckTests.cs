@@ -97,5 +97,41 @@ namespace HealthChecks.Oracle.Tests.Functional
             response.StatusCode.Should()
                 .Be(HttpStatusCode.ServiceUnavailable);
         }
+
+        [Fact]
+        public async Task be_healthy_with_connection_string_factory_when_oracle_is_available()
+        {
+            var factoryCalled = false;
+            var connectionString = "Data Source=localhost:1521/xe;User Id=system;Password=oracle";
+
+            var webHostBuilder = new WebHostBuilder()
+                .UseStartup<DefaultStartup>()
+                .ConfigureServices(services =>
+                {
+                    services.AddHealthChecks()
+                    .AddOracle(_ =>
+                    {
+                        factoryCalled = true;
+                        return connectionString;
+
+                    }, tags: new string[] { "oracle" });
+                })
+                .Configure(app =>
+                {
+                    app.UseHealthChecks("/health", new HealthCheckOptions()
+                    {
+                        Predicate = r => r.Tags.Contains("oracle")
+                    });
+                });
+
+            var server = new TestServer(webHostBuilder);
+
+            var response = await server.CreateRequest("/health")
+                .GetAsync();
+
+            response.EnsureSuccessStatusCode();
+            factoryCalled.Should().BeTrue();
+            factoryCalled.Should().BeTrue();
+        }
     }
 }
